@@ -16,8 +16,8 @@ type UPSStatus struct {
 	BatteryLow         bool // Bit 6
 	ByPassOrBuckActive bool // Bit 5
 	UPSFail            bool // Bit 4
-	StandBy            bool // Bit 3 = 1
-	Online             bool // Bit 3 = 0
+	StandBy            bool // Bit 3 == 1
+	Online             bool // Bit 3 == 0
 	TestInProgress     bool // Bit 2
 	ShutdownActive     bool // Bit 1
 	BeeperOn           bool // Bit 0
