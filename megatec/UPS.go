@@ -5,13 +5,13 @@ import (
 	"errors"
 	"github.com/jacobsa/go-serial/serial"
 	"io"
-	"log"
 	"strconv"
 	"strings"
 )
 
 type ups struct {
-	port io.ReadWriteCloser
+	port   io.ReadWriteCloser
+	reader bufio.Reader
 }
 
 type UPS interface {
@@ -35,15 +35,17 @@ func NewUPS(device string, baud uint, dataBits uint, stopBits uint, parityMode s
 		BaudRate:        baud,
 		DataBits:        dataBits,
 		StopBits:        stopBits,
-		MinimumReadSize: 1,
+		MinimumReadSize: 0,
 		ParityMode:      parityMode,
 	}
 	port, err := serial.Open(options)
+	reader := bufio.NewReader(port)
 	if err != nil {
 		panic(err)
 	}
 	return &ups{
-		port: port,
+		port:   port,
+		reader: *reader,
 	}
 }
 
@@ -57,10 +59,7 @@ func (u ups) Query() (QueryResponse, error) {
 	}
 
 	parts := strings.Split(data, " ")
-	log.Print(len(parts))
-	log.Print(parts)
-	// || len(parts[7]) != 8
-	if len(parts) != 6 {
+	if len(parts) != 8 || len(parts[7]) != 8 {
 		return QueryResponse{}, errors.New("invalid response")
 	}
 
@@ -76,16 +75,16 @@ func (u ups) Query() (QueryResponse, error) {
 	response.OutputCurrent = uint(outputCurrent)
 	response.InputFrequency, _ = strconv.ParseFloat(parts[4], 0)
 	response.BatteryVoltage, _ = strconv.ParseFloat(parts[5], 0)
-	//response.Temperature, _ = strconv.ParseFloat(parts[6], 0)
-	//response.Status.UtilityFail = parts[7][0] == '1'
-	//response.Status.BatteryLow = parts[7][1] == '1'
-	//response.Status.ByPassOrBuckActive = parts[7][2] == '1'
-	//response.Status.UPSFail = parts[7][3] == '1'
-	//response.Status.StandBy = parts[7][4] == '1'
-	//response.Status.Online = parts[7][4] == '0'
-	//response.Status.TestInProgress = parts[7][5] == '1'
-	//response.Status.ShutdownActive = parts[7][6] == '1'
-	//response.Status.BeeperOn = parts[7][7] == '1'
+	response.Temperature, _ = strconv.ParseFloat(parts[6], 0)
+	response.Status.UtilityFail = parts[7][0] == '1'
+	response.Status.BatteryLow = parts[7][1] == '1'
+	response.Status.ByPassOrBuckActive = parts[7][2] == '1'
+	response.Status.UPSFail = parts[7][3] == '1'
+	response.Status.StandBy = parts[7][4] == '1'
+	response.Status.Online = parts[7][4] == '0'
+	response.Status.TestInProgress = parts[7][5] == '1'
+	response.Status.ShutdownActive = parts[7][6] == '1'
+	response.Status.BeeperOn = parts[7][7] == '1'
 
 	//log.Printf("%q", response)
 
@@ -99,8 +98,7 @@ func (u ups) Close() {
 
 func (u ups) Test() error {
 	b := []byte{0x54, 0x0D} // T<cr>
-	_, err := u.port.Write(b)
-	if err != nil {
+	if _, err := u.port.Write(b); err != nil {
 		return err
 	}
 	return nil
@@ -131,21 +129,9 @@ func (u ups) GetRating() {
 }
 
 func (u ups) readUntilCR() (string, error) {
-	scanner := bufio.NewScanner(u.port)
-	onCR := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-		for i := 0; i < len(data); i++ {
-			log.Print(i, data[i])
-			if data[i] == 0x0D {
-				return i + 1, data[:i], nil
-			}
-		}
-		return 0, data, bufio.ErrFinalToken
+	line, err := u.reader.ReadString('\r')
+	if err != nil {
+		return "", err
 	}
-	scanner.Split(onCR)
-	var line strings.Builder
-	for scanner.Scan() {
-		line.WriteString(scanner.Text())
-	}
-	log.Print(line)
-	return line.String(), nil
+	return strings.Trim(line, "\r"), nil
 }
