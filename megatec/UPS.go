@@ -33,12 +33,12 @@ type UPS interface {
 
 func NewUPS(device string, baud uint, dataBits uint, stopBits uint, parityMode serial.ParityMode) UPS {
 	options := serial.OpenOptions{
-		PortName:        device,
-		BaudRate:        baud,
-		DataBits:        dataBits,
-		StopBits:        stopBits,
-		MinimumReadSize: 0,
-		ParityMode:      parityMode,
+		PortName:              device,
+		BaudRate:              baud,
+		DataBits:              dataBits,
+		StopBits:              stopBits,
+		InterCharacterTimeout: 5000,
+		ParityMode:            parityMode,
 	}
 	port, err := serial.Open(options)
 	reader := bufio.NewReader(port)
