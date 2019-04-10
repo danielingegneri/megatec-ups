@@ -18,15 +18,17 @@ type UPS interface {
 	Close()
 	Query() (QueryResponse, error)
 	Test() error
-	TestFor(seconds uint)
-	TestUntilLow()
-	CancelTest()
-	ToggleBeeper()
-	Shutdown(restore bool)
-	CancelShutdown()
-	GetInfo()
-	GetRating()
+	TestFor(minutes uint64) error
+	TestUntilLow() error
+	CancelTest() error
+	ToggleBeeper() error
+	Shutdown(shutdownDelayMin float64) error
+	ShutdownRestore(shutdownDelayMin float64, restoreDelayMin uint) error
+	CancelShutdown() error
+	GetInfo() error
+	GetRating() error
 	readUntilCR() (string, error)
+	write(line string) error
 }
 
 func NewUPS(device string, baud uint, dataBits uint, stopBits uint, parityMode serial.ParityMode) UPS {
@@ -50,9 +52,10 @@ func NewUPS(device string, baud uint, dataBits uint, stopBits uint, parityMode s
 }
 
 func (u ups) Query() (QueryResponse, error) {
-	b := []byte{0x51, 0x31, 0x0D} // Q1<cr>
-	_, err := u.port.Write(b)
-
+	err := u.write("Q1")
+	if err != nil {
+		return QueryResponse{}, err
+	}
 	data, err := u.readUntilCR()
 	if err != nil {
 		return QueryResponse{}, err
@@ -72,7 +75,7 @@ func (u ups) Query() (QueryResponse, error) {
 	response.InputFaultVoltage, _ = strconv.ParseFloat(parts[1], 0)
 	response.OutputVoltage, _ = strconv.ParseFloat(parts[2], 0)
 	outputCurrent, _ := strconv.ParseUint(parts[3], 10, 0)
-	response.OutputCurrent = uint(outputCurrent)
+	response.OutputCurrent = uint64(outputCurrent)
 	response.InputFrequency, _ = strconv.ParseFloat(parts[4], 0)
 	response.BatteryVoltage, _ = strconv.ParseFloat(parts[5], 0)
 	response.Temperature, _ = strconv.ParseFloat(parts[6], 0)
@@ -86,9 +89,6 @@ func (u ups) Query() (QueryResponse, error) {
 	response.Status.ShutdownActive = parts[7][6] == '1'
 	response.Status.BeeperOn = parts[7][7] == '1'
 
-	//log.Printf("%q", response)
-
-	// TODO: Populate struct with response
 	return response, nil
 }
 
@@ -97,35 +97,51 @@ func (u ups) Close() {
 }
 
 func (u ups) Test() error {
-	b := []byte{0x54, 0x0D} // T<cr>
-	if _, err := u.port.Write(b); err != nil {
-		return err
+	return u.write("T")
+}
+func (u ups) TestFor(minutes uint64) error {
+	// TODO: TEST
+	return u.write("T" + strconv.FormatUint(minutes, 10))
+}
+func (u ups) TestUntilLow() error {
+	// TODO: TEST
+	return u.write("TL")
+}
+func (u ups) CancelTest() error {
+	// TODO: TEST
+	return u.write("CT")
+}
+func (u ups) ToggleBeeper() error {
+	// TODO: TEST
+	return u.write("Q")
+}
+func (u ups) Shutdown(shutdownDelayMin float64) error {
+	// TODO: TEST
+	return u.write("S" + strconv.FormatFloat(shutdownDelayMin, 'f', 1, 32))
+}
+func (u ups) ShutdownRestore(shutdownDelayMin float64, restoreDelayMin uint) error {
+	// TODO: TEST
+	if shutdownDelayMin > 10 {
+		return errors.New("shutdownDelayMin limited to 10")
 	}
-	return nil
+	if restoreDelayMin > 9999 {
+		return errors.New("restoreDelayMin limited to 9999")
+	}
+	// TODO: Check if shutdownDelayMin needs to be formatted exactly: "is a number ranging from .2, .3, …, 01, 02, …, up to 10"
+	// TODO: Check if restoreDelayMin needs to be formatted exactly: "is a number ranging from 0001 to 9999"
+	return u.write("S" + strconv.FormatFloat(shutdownDelayMin, 'f', 1, 32) + "C" + strconv.Itoa(int(restoreDelayMin)))
 }
-func (u ups) TestFor(seconds uint) {
-
+func (u ups) CancelShutdown() error {
+	// TODO: TEST
+	return u.write("C")
 }
-func (u ups) TestUntilLow() {
-
+func (u ups) GetInfo() error {
+	// TODO: Implement info
+	return u.write("I")
 }
-func (u ups) CancelTest() {
-
-}
-func (u ups) ToggleBeeper() {
-
-}
-func (u ups) Shutdown(restore bool) {
-
-}
-func (u ups) CancelShutdown() {
-
-}
-func (u ups) GetInfo() {
-
-}
-func (u ups) GetRating() {
-
+func (u ups) GetRating() error {
+	// TODO: Implement rating stuff
+	return u.write("F")
 }
 
 func (u ups) readUntilCR() (string, error) {
@@ -134,4 +150,12 @@ func (u ups) readUntilCR() (string, error) {
 		return "", err
 	}
 	return strings.Trim(line, "\r"), nil
+}
+
+func (u ups) write(line string) error {
+	b := []byte(line + "\r")
+	if _, err := u.port.Write(b); err != nil {
+		return err
+	}
+	return nil
 }

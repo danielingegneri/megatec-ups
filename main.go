@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"github.com/danielingegneri/megatec-ups/megatec"
 	"github.com/jacobsa/go-serial/serial"
@@ -33,6 +34,13 @@ func main() {
 	ups := megatec.NewUPS(*dev, *baud, *dataBits, *stopBits, parity)
 	defer ups.Close()
 
-	log.Print(ups.Query())
-
+	query, err := ups.Query()
+	if err != nil {
+		log.Fatal(err)
+	}
+	jsonString, err := json.Marshal(query)
+	if err != nil {
+		log.Fatal(err)
+	}
+	println(string(jsonString))
 }
