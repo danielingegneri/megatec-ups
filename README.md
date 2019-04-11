@@ -1,4 +1,4 @@
-# megatec-ups
+megatec-ups
 =============
 Created this app to query my "Digitec" brand UPS from Jaycar Australia.
 
