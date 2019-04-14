@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"github.com/danielingegneri/megatec-ups/megatec"
 	"github.com/jacobsa/go-serial/serial"
 	"log"
@@ -42,5 +43,5 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	println(string(jsonString))
+	fmt.Println(string(jsonString))
 }
